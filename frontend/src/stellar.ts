@@ -36,7 +36,6 @@ export interface MerchantSubscriber {
   interval: number;
   lastCharged: number;
   nextChargeAt: number;
-  nextChargeDate: string;
 }
 
 export interface ContractEvent {
@@ -374,9 +373,10 @@ export async function getMerchantSubscribers(merchant: string): Promise<Merchant
 export async function getBalance(publicKey: string): Promise<string> {
   try {
     const resp = await fetch(`https://horizon-testnet.stellar.org/accounts/${publicKey}`);
+    if (!resp.ok) throw new Error(`Horizon API error: ${resp.status}`);
     const data = await resp.json();
-    const nativeBalance = data.balances?.find((b: { asset_type: string }) => b.asset_type === "native");
-    return nativeBalance ? nativeBalance.balance : "0";
+    const nativeBalance = data.balances?.find((b: { asset_type: string; balance: string }) => b.asset_type === "native");
+    return nativeBalance?.balance ?? "0";
   } catch {
     return "0";
   }

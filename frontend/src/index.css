@@ -590,6 +590,37 @@ input::placeholder {
   color: var(--color-text);
 }
 
+.merchant-subscriber-card {
+  padding: var(--space-4);
+}
+
+.merchant-subscriber-meta {
+  display: flex;
+  justify-content: space-between;
+}
+
+.merchant-subscriber-list {
+  gap: var(--space-3);
+}
+
+.merchant-subscriber-row {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+  align-items: flex-start;
+}
+
+.merchant-subscriber-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-subscriber-value {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 180px;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Subscription Card Styles
    ───────────────────────────────────────────────────────────────────────────── */
