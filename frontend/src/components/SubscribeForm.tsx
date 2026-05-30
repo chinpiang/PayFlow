@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { buildSubscribeTx } from "../stellar";
 import { friendlyError } from "../utils/errors";
 import { STROOPS_PER_XLM, BILLING_INTERVALS } from "../constants";
 import { useFormValidation } from "../hooks/useFormValidation";
 import { useToast } from "../hooks/useToast";
 import { useTransaction } from "../hooks/useTransaction";
+import AllowanceDisplay from "./AllowanceDisplay";
 import ToastContainer from "./Toast";
 
 interface Props {
@@ -42,7 +43,7 @@ export default function SubscribeForm({ userKey, onSign, onSuccess, announce }: 
     });
 
     if (hash) {
-      addToast(`Subscribed! tx: ${hash.slice(0, 12)}…`, "success");
+      addToast("Subscribed!", "success", hash);
       announce("Transaction confirmed");
       onSuccess();
     } else if (tx.error) {
@@ -51,6 +52,12 @@ export default function SubscribeForm({ userKey, onSign, onSuccess, announce }: 
       announce(msg);
     }
   }
+
+  const amountStroops = useMemo(() => {
+    const parsed = parseFloat(amount);
+    if (!amount || Number.isNaN(parsed) || parsed <= 0) return 0n;
+    return BigInt(Math.round(parsed * STROOPS_PER_XLM));
+  }, [amount]);
 
   const pending = tx.status === "pending";
 
@@ -81,6 +88,13 @@ export default function SubscribeForm({ userKey, onSign, onSuccess, announce }: 
           required
         />
         {errors.amount && <span className="text-error">{errors.amount}</span>}
+        {userKey && (
+          <AllowanceDisplay
+            userKey={userKey}
+            subscriptionAmount={amountStroops}
+            refreshTrigger={0}
+          />
+        )}
       </label>
 
       <label className="form-group">

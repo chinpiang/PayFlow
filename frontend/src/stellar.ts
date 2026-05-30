@@ -33,6 +33,12 @@ export const DEFAULT_TOKEN = import.meta.env.VITE_DEFAULT_TOKEN ?? "CAAAAAAAAAAA
 
 export const server = new Server(RPC_URL);
 
+// Stellar.expert explorer link for a transaction, on the active network.
+export function explorerTxUrl(hash: string): string {
+  const network = NETWORK_PASSPHRASE === Networks.PUBLIC ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${network}/tx/${hash}`;
+}
+
 export interface MerchantSubscriber {
   subscriber: string;
   amount: string;

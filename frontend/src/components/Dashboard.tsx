@@ -45,7 +45,7 @@ export default function Dashboard({ userKey, onSign, refreshTrigger, announce }:
         const xdr = await buildCancelTx(userKey);
         return onSign(xdr);
       });
-      addToast(`Cancelled. tx: ${hash.slice(0, 12)}…`, "success");
+      addToast("Cancelled.", "success", hash);
       announce("Transaction confirmed");
       refresh();
     } catch (e: unknown) {
@@ -62,7 +62,7 @@ export default function Dashboard({ userKey, onSign, refreshTrigger, announce }:
         const xdr = await buildPayPerUseTx(userKey, stroops);
         return onSign(xdr);
       });
-      addToast(`Paid! tx: ${hash.slice(0, 12)}…`, "success");
+      addToast("Paid!", "success", hash);
       announce("Transaction confirmed");
     } catch (e: unknown) {
       const msg = `Error: ${friendlyError(e instanceof Error ? e.message : String(e))}`;
