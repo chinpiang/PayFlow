@@ -1,3 +1,1 @@
-//
- batch charge UI helper (unused)
-
+// Batch charge UI helper (unused).

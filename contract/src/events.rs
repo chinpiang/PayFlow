@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, Symbol};
+use soroban_sdk::{Address, BytesN, Env, Symbol};
 
 use crate::Subscription;
 
@@ -26,4 +26,29 @@ pub fn publish_pay_per_use(env: &Env, user: &Address, merchant: &Address, amount
 pub fn publish_cancelled(env: &Env, user: &Address) {
     env.events()
         .publish((Symbol::new(env, "cancelled"), user.clone()), ());
+}
+
+pub fn publish_upgraded(env: &Env, new_wasm_hash: &BytesN<32>) {
+    env.events()
+        .publish((Symbol::new(env, "upgraded"),), new_wasm_hash.clone());
+}
+
+pub fn publish_contract_paused(env: &Env) {
+    env.events()
+        .publish((Symbol::new(env, "contract_paused"),), ());
+}
+
+pub fn publish_contract_unpaused(env: &Env) {
+    env.events()
+        .publish((Symbol::new(env, "contract_unpaused"),), ());
+}
+
+pub fn publish_daily_limit_set(env: &Env, user: &Address, limit: i128) {
+    env.events()
+        .publish((Symbol::new(env, "daily_limit_set"), user.clone()), limit);
+}
+
+pub fn publish_daily_limit_removed(env: &Env, user: &Address) {
+    env.events()
+        .publish((Symbol::new(env, "daily_limit_removed"), user.clone()), ());
 }

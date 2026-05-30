@@ -16,11 +16,14 @@ mod subscription_history;
 mod subscription_metadata;
 mod test;
 mod trial;
+mod upgrade;
 mod validation;
 mod whitelist;
 
 use crate::errors::ContractError;
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, token, Address, BytesN, Env, String, Symbol, Vec,
+};
 
 pub use batch::ChargeResult;
 
@@ -60,6 +63,8 @@ pub enum DataKey {
     SubscriptionMeta(Address),
     // Feature: charge history
     ChargeHistory(Address),
+    // Feature: emergency contract pause
+    ContractPaused,
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -80,10 +85,11 @@ pub struct Subscription {
     pub interval: u64,
     pub last_charged: u64,
     pub active: bool,
-    pub paused: bool,       // true if paused, false otherwise
-    pub token: Address,     // SAC token used for this subscription
+    pub paused: bool,              // true if paused, false otherwise
+    pub token: Address,            // SAC token used for this subscription
     pub referrer: Option<Address>, // optional referral address
-    pub label: Symbol,      // user-assigned label for this subscription
+    pub label: Symbol,             // user-assigned label for this subscription
+    pub trial_duration: u64,       // optional trial duration in seconds
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -103,6 +109,35 @@ impl FlowPay {
         env.storage().instance().set(&DataKey::Token, &token);
     }
 
+    /// Creates or replaces a recurring subscription for `user`.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber address. Must authorize the call.
+    /// - `merchant`: Recipient that receives recurring and pay-per-use transfers.
+    /// - `amount`: Amount transferred per billing period. Must be greater than zero.
+    /// - `interval`: Billing cadence in seconds. Must be greater than zero.
+    /// - `token`: Stellar Asset Contract used for this subscription.
+    /// - `trial_period`: Optional seconds to delay the first charge.
+    /// - `referrer`: Optional referrer stored for the subscriber.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if the contract is paused, the merchant whitelist rejects `merchant`,
+    /// `amount` or `interval` is zero, or the contract allowance is below `amount`.
+    ///
+    /// # Side Effects
+    ///
+    /// Stores the subscription, refreshes its TTL, updates active subscription
+    /// count and referral storage, and emits `subscribed`.
     pub fn subscribe(
         env: Env,
         user: Address,
@@ -113,6 +148,7 @@ impl FlowPay {
         trial_period: Option<u64>,
         referrer: Option<Address>,
     ) {
+        ensure_contract_not_paused(&env);
         user.require_auth();
 
         if whitelist::is_whitelist_enabled(&env) {
@@ -129,10 +165,8 @@ impl FlowPay {
         assert!(allowance >= amount, "insufficient allowance");
 
         let now = env.ledger().timestamp();
-        let last_charged = match trial_period {
-            Some(period) => now + period,
-            None => now,
-        };
+        let trial_duration = trial_period.unwrap_or(0);
+        let last_charged = now + trial_duration;
 
         let sub = Subscription {
             merchant,
@@ -142,8 +176,8 @@ impl FlowPay {
             active: true,
             paused: false,
             token,
-            referrer,
-            label,
+            referrer: referrer.clone(),
+            label: Symbol::new(&env, "default"),
             trial_duration,
         };
 
@@ -158,7 +192,34 @@ impl FlowPay {
         events::publish_subscribed(&env, &user, &sub);
     }
 
+    /// Charges the next due recurring payment for `user`.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber whose active subscription should be charged.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// No subscriber signature is required. The contract spends through the
+    /// previously granted token allowance.
+    ///
+    /// # Errors
+    ///
+    /// Panics if the contract is paused, no subscription exists, the subscription
+    /// is inactive or paused, the interval has not elapsed, the grace period has
+    /// elapsed, or token transfer authorization/allowance is insufficient.
+    ///
+    /// # Side Effects
+    ///
+    /// Transfers `amount` from `user` to the merchant, records merchant revenue
+    /// and charge history, refreshes subscription TTL, updates `last_charged`,
+    /// and emits `charged`.
     pub fn charge(env: Env, user: Address) {
+        ensure_contract_not_paused(&env);
         let key = DataKey::Subscription(user.clone());
 
         let mut sub: Subscription = env
@@ -205,7 +266,33 @@ impl FlowPay {
         extend_subscription_ttl(&env, &user);
     }
 
+    /// Executes an immediate pay-per-use charge for an active subscription.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber address. Must authorize the call.
+    /// - `amount`: One-time amount to transfer. Must be greater than zero.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if the contract is paused, `amount` is zero, no subscription
+    /// exists, the subscription is inactive or paused, the daily spending limit
+    /// would be exceeded, or token transfer authorization/allowance is insufficient.
+    ///
+    /// # Side Effects
+    ///
+    /// Transfers `amount` to the subscription merchant, updates merchant revenue
+    /// and daily spend tracking, and emits `pay_per_use`.
     pub fn pay_per_use(env: Env, user: Address, amount: i128) {
+        ensure_contract_not_paused(&env);
         user.require_auth();
 
         assert!(amount > 0, "amount must be positive");
@@ -238,6 +325,28 @@ impl FlowPay {
         events::publish_pay_per_use(&env, &user, &sub.merchant, amount);
     }
 
+    /// Cancels `user`'s active subscription.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber address. Must authorize the call.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if no subscription exists for `user`.
+    ///
+    /// # Side Effects
+    ///
+    /// Marks the subscription inactive, decrements active subscription count, and
+    /// emits `cancelled`.
     pub fn cancel(env: Env, user: Address) {
         user.require_auth();
 
@@ -257,6 +366,27 @@ impl FlowPay {
         events::publish_cancelled(&env, &user);
     }
 
+    /// Pauses `user`'s subscription without cancelling it.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber address. Must authorize the call.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if no subscription exists or the subscription is inactive.
+    ///
+    /// # Side Effects
+    ///
+    /// Sets the subscription `paused` flag and emits `paused`.
     pub fn pause(env: Env, user: Address) {
         user.require_auth();
 
@@ -278,6 +408,27 @@ impl FlowPay {
             .publish((Symbol::new(&env, "paused"), user), ());
     }
 
+    /// Resumes `user`'s paused subscription.
+    ///
+    /// # Parameters
+    ///
+    /// - `user`: Subscriber address. Must authorize the call.
+    ///
+    /// # Returns
+    ///
+    /// Returns nothing.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if no subscription exists or the subscription is inactive.
+    ///
+    /// # Side Effects
+    ///
+    /// Clears the subscription `paused` flag and emits `resumed`.
     pub fn resume(env: Env, user: Address) {
         user.require_auth();
 
@@ -297,6 +448,34 @@ impl FlowPay {
 
         env.events()
             .publish((Symbol::new(&env, "resumed"), user), ());
+    }
+
+    /// Pauses all user-facing payment operations for the contract.
+    pub fn pause_contract(env: Env) {
+        admin::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::ContractPaused, &true);
+        events::publish_contract_paused(&env);
+    }
+
+    /// Unpauses user-facing payment operations for the contract.
+    pub fn unpause_contract(env: Env) {
+        admin::require_admin(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::ContractPaused, &false);
+        events::publish_contract_unpaused(&env);
+    }
+
+    /// Returns whether the contract is currently paused.
+    pub fn is_contract_paused(env: Env) -> bool {
+        is_contract_paused(&env)
+    }
+
+    /// Upgrades the current contract WASM to `new_wasm_hash`.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        upgrade::upgrade(&env, new_wasm_hash);
     }
 
     pub fn get_subscription(env: Env, user: Address) -> Option<Subscription> {
@@ -366,6 +545,7 @@ impl FlowPay {
     /// paused, interval not elapsed, etc.) are recorded as a `ChargeResult`
     /// variant and do **not** abort the batch.
     pub fn batch_charge(env: Env, users: Vec<Address>) -> Vec<ChargeResult> {
+        ensure_contract_not_paused(&env);
         batch::batch_charge(&env, users)
     }
 
@@ -404,6 +584,14 @@ impl FlowPay {
         user.require_auth();
         assert!(limit > 0, "limit must be positive");
         spending_limit::set_daily_limit(&env, &user, limit);
+        events::publish_daily_limit_set(&env, &user, limit);
+    }
+
+    /// Removes the caller's daily spending cap for `pay_per_use()`.
+    pub fn remove_daily_limit(env: Env, user: Address) {
+        user.require_auth();
+        spending_limit::remove_daily_limit(&env, &user);
+        events::publish_daily_limit_removed(&env, &user);
     }
 
     /// Returns the current daily spending limit for the caller, or `None` if unset.
@@ -472,4 +660,15 @@ fn extend_subscription_ttl(env: &Env, user: &Address) {
         SUBSCRIPTION_TTL_LEDGERS,
         SUBSCRIPTION_TTL_LEDGERS,
     );
+}
+
+fn is_contract_paused(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::ContractPaused)
+        .unwrap_or(false)
+}
+
+fn ensure_contract_not_paused(env: &Env) {
+    assert!(!is_contract_paused(env), "contract is paused");
 }

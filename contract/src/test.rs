@@ -2,9 +2,9 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events as _, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env,
+    Address, BytesN, Env, Symbol, TryIntoVal,
 };
 
 /// Returns (env, contract_id, token_addr, user, merchant)
@@ -43,6 +43,26 @@ fn setup_second_token(env: &Env, contract_id: &Address, user: &Address) -> Addre
     token.approve(user, contract_id, &10_000_0000000, &200);
 
     token_addr
+}
+
+fn assert_last_event(env: &Env, topic: &str) {
+    let events = env.events().all();
+    let (_, topics, data) = events.get(events.len() - 1).unwrap();
+    let topic_symbol: Symbol = topics.get(0).unwrap().try_into_val(env).unwrap();
+    let data_unit: () = data.try_into_val(env).unwrap();
+
+    assert_eq!(topic_symbol, Symbol::new(env, topic));
+    assert_eq!(data_unit, ());
+}
+
+fn assert_last_user_event(env: &Env, topic: &str, user: &Address) {
+    let events = env.events().all();
+    let (_, topics, _) = events.get(events.len() - 1).unwrap();
+    let topic_symbol: Symbol = topics.get(0).unwrap().try_into_val(env).unwrap();
+    let topic_user: Address = topics.get(1).unwrap().try_into_val(env).unwrap();
+
+    assert_eq!(topic_symbol, Symbol::new(env, topic));
+    assert_eq!(topic_user, user.clone());
 }
 
 // ─────────────────────────────────────────────
@@ -646,6 +666,77 @@ fn test_daily_limit_visibility_and_spend_tracking() {
     client.pay_per_use(&user, &1_0000000);
     assert_eq!(client.get_daily_spent(&user), 1_0000000);
     assert_eq!(client.get_daily_limit(&user), Some(4_0000000));
+}
+
+#[test]
+fn test_daily_limit_set_event_emitted() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    client.set_daily_limit(&user, &4_0000000);
+
+    let events = env.events().all();
+    let (_, topics, data) = events.get(events.len() - 1).unwrap();
+    let topic_symbol: Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+    let topic_user: Address = topics.get(1).unwrap().try_into_val(&env).unwrap();
+    let limit: i128 = data.try_into_val(&env).unwrap();
+
+    assert_eq!(topic_symbol, Symbol::new(&env, "daily_limit_set"));
+    assert_eq!(topic_user, user);
+    assert_eq!(limit, 4_0000000);
+}
+
+#[test]
+fn test_daily_limit_removed_event_emitted() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    client.set_daily_limit(&user, &4_0000000);
+    client.remove_daily_limit(&user);
+
+    assert_eq!(client.get_daily_limit(&user), None);
+    assert_last_user_event(&env, "daily_limit_removed", &user);
+}
+
+// ─────────────────────────────────────────────
+// Contract admin event tests
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_contract_pause_events_emitted() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+    env.as_contract(&contract_id, || {
+        storage::set_admin(&env, &user);
+    });
+
+    client.pause_contract();
+    assert!(client.is_contract_paused());
+    assert_last_event(&env, "contract_paused");
+
+    client.unpause_contract();
+    assert!(!client.is_contract_paused());
+    assert_last_event(&env, "contract_unpaused");
+}
+
+#[test]
+fn test_upgrade_event_emitted() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+    env.as_contract(&contract_id, || {
+        storage::set_admin(&env, &user);
+    });
+
+    let new_wasm_hash = BytesN::from_array(&env, &[7; 32]);
+    client.upgrade(&new_wasm_hash);
+
+    let events = env.events().all();
+    let (_, topics, data) = events.get(events.len() - 1).unwrap();
+    let topic_symbol: Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+    let emitted_hash: BytesN<32> = data.try_into_val(&env).unwrap();
+
+    assert_eq!(topic_symbol, Symbol::new(&env, "upgraded"));
+    assert_eq!(emitted_hash, new_wasm_hash);
 }
 
 // ─────────────────────────────────────────────
