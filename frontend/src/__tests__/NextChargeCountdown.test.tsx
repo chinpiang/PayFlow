@@ -1,10 +1,10 @@
 import React from "react";
 import { render, screen, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import NextChargeCountdown from "../components/NextChargeCountdown";
 
 describe("NextChargeCountdown", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.useFakeTimers();
   });
 
@@ -13,7 +13,6 @@ describe("NextChargeCountdown", () => {
   });
 
   it("shows days/hours/minutes until next charge", () => {
-    const { default: NextChargeCountdown } = require("../components/NextChargeCountdown");
 
     const base = new Date(Date.UTC(2026, 4, 29, 0, 0, 0));
     vi.setSystemTime(base);
@@ -27,7 +26,6 @@ describe("NextChargeCountdown", () => {
   });
 
   it("shows overdue when timestamp is in the past and updates on interval", () => {
-    const { default: NextChargeCountdown } = require("../components/NextChargeCountdown");
 
     const base = new Date(Date.UTC(2026, 4, 29, 0, 0, 0));
     vi.setSystemTime(base);

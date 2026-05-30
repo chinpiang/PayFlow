@@ -115,7 +115,7 @@ export default function SubscriptionCard({
             <span className="merchant-row__address">
               {`${merchant.slice(0, 8)}…${merchant.slice(-6)}`}
             </span>
-            <CopyButton text={merchant} />
+            <CopyButton text={merchant} ariaLabel="Copy merchant address" />
           </div>
         </div>
         <Row label="Amount" value={`${xlm} XLM`} />
@@ -138,7 +138,7 @@ export default function SubscriptionCard({
             <button onClick={() => setShowPauseConfirm(true)} className="btn-secondary pause-btn">
               Pause
             </button>
-            <button onClick={onCancel} className="btn-danger cancel-btn">
+            <button onClick={onCancel} className="btn-danger cancel-btn" aria-label="Cancel subscription">
               Cancel
             </button>
           </>
@@ -148,7 +148,7 @@ export default function SubscriptionCard({
             <button onClick={handleResume} disabled={resumeLoading} className="btn-primary resume-btn">
               {resumeLoading ? "Resuming…" : "Resume"}
             </button>
-            <button onClick={onCancel} className="btn-danger cancel-btn">
+            <button onClick={onCancel} className="btn-danger cancel-btn" aria-label="Cancel subscription">
               Cancel
             </button>
           </>

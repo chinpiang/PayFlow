@@ -23,6 +23,9 @@ const ACTIVE_SUB = {
 
 function setup(sub: typeof ACTIVE_SUB | null = ACTIVE_SUB) {
   vi.mocked(stellar.getSubscription).mockResolvedValue(sub);
+  vi.mocked(stellar.getAllowance).mockResolvedValue(BigInt(0));
+  vi.mocked(stellar.getDailyLimit).mockResolvedValue(null);
+  vi.mocked(stellar.getDailySpent).mockResolvedValue(BigInt(0));
   vi.mocked(stellar.server.getTransaction).mockResolvedValue({ status: "SUCCESS" } as any);
 
   const onSign = vi.fn().mockResolvedValue("txhash1234567890");

@@ -1,10 +1,10 @@
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { useToast } from "../hooks/useToast";
 
 describe("useToast hook", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.useFakeTimers();
   });
 
@@ -13,9 +13,6 @@ describe("useToast hook", () => {
   });
 
   it("adds a toast and auto-dismisses after 5s", () => {
-    const { default: ReactDefault } = require("react");
-    const { useToast } = require("../hooks/useToast");
-
     function Test() {
       const { toasts, addToast } = useToast();
       return (
@@ -24,7 +21,7 @@ describe("useToast hook", () => {
             add
           </button>
           <div data-testid="list">
-            {toasts.map((t: { id: string; message: string }) => (
+            {toasts.map((t) => (
               <div key={t.id} data-testid={`toast-${t.id}`}>
                 {t.message}
               </div>
@@ -34,7 +31,7 @@ describe("useToast hook", () => {
       );
     }
 
-    render(ReactDefault.createElement(Test));
+    render(<Test />);
 
     const btn = screen.getByText("add");
     fireEvent.click(btn);
@@ -49,10 +46,6 @@ describe("useToast hook", () => {
   });
 
   it("allows duplicate messages (unique ids)", () => {
-    vi.resetModules();
-    const { default: ReactDefault } = require("react");
-    const { useToast } = require("../hooks/useToast");
-
     function Test() {
       const { toasts, addToast } = useToast();
       return (
@@ -61,7 +54,7 @@ describe("useToast hook", () => {
             add
           </button>
           <div data-testid="list">
-            {toasts.map((t: { id: string; message: string }) => (
+            {toasts.map((t) => (
               <div key={t.id} data-testid={`toast-${t.id}`}>
                 {t.message}
               </div>
@@ -71,7 +64,7 @@ describe("useToast hook", () => {
       );
     }
 
-    render(ReactDefault.createElement(Test));
+    render(<Test />);
     const btn = screen.getByText("add");
     fireEvent.click(btn);
     fireEvent.click(btn);
