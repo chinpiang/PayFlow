@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { StrKey } from "@stellar/stellar-sdk";
-import { StrKey } from "@stellar/stellar-sdk";
-import { buildSubscribeTx, DEFAULT_TOKEN, DEFAULT_TOKEN } from "../stellar";
+import { buildSubscribeTx, DEFAULT_TOKEN } from "../stellar";
 import { friendlyError } from "../utils/errors";
 import { STROOPS_PER_XLM, BILLING_INTERVALS } from "../constants";
 import { useFormValidation } from "../hooks/useFormValidation";
 import { useToast } from "../hooks/useToast";
 import { useTransaction } from "../hooks/useTransaction";
+import BalanceDisplay from "./BalanceDisplay";
 import AllowanceDisplay from "./AllowanceDisplay";
 import ToastContainer from "./Toast";
 
@@ -77,6 +77,8 @@ export default function SubscribeForm({ userKey, onSign, onSuccess, announce }: 
         />
         {errors.merchant && <span className="text-error">{errors.merchant}</span>}
       </label>
+
+      <BalanceDisplay publicKey={userKey} />
 
       <label className="form-group">
         <span className="form-label">Amount (XLM per period)</span>
