@@ -494,6 +494,11 @@ impl FlowPay {
         is_contract_paused(&env)
     }
 
+    /// Returns the current admin address, or `None` if no admin has been set.
+    pub fn get_admin(env: Env) -> Option<Address> {
+        storage::get_admin_optional(&env)
+    }
+
     /// Upgrades the current contract WASM to `new_wasm_hash`.
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         upgrade::upgrade(&env, new_wasm_hash);
