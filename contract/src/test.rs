@@ -1016,3 +1016,25 @@ fn test_subscribe_overwrites_cancelled_subscription() {
     assert!(sub_new.active);
     assert_eq!(sub_new.amount, 2_0000000);
 }
+
+// ─────────────────────────────────────────────
+// Issue: get_grace_period getter
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_get_grace_period_default_zero() {
+    let (env, contract_id, _token_addr, _user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+    assert_eq!(client.get_grace_period(), 0);
+}
+
+#[test]
+fn test_get_grace_period_after_set() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+    env.as_contract(&contract_id, || {
+        storage::set_admin(&env, &user);
+    });
+    client.set_grace_period(&3600);
+    assert_eq!(client.get_grace_period(), 3600);
+}

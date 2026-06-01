@@ -531,6 +531,11 @@ impl FlowPay {
         grace::set_grace_period(&env, seconds);
     }
 
+    /// Returns the current grace period in seconds. Returns 0 if not set.
+    pub fn get_grace_period(env: Env) -> u64 {
+        grace::get_grace_period(&env)
+    }
+
     /// Adds a merchant to the whitelist.
     pub fn add_merchant(env: Env, merchant: Address) {
         admin::require_admin(&env);
