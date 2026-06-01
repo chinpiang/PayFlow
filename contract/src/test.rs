@@ -1306,3 +1306,34 @@ fn test_subscribe_non_contract_address() {
 
     client.subscribe(&user, &merchant, &1_0000000, &86400, &non_contract_token, &None, &None);
 }
+
+// Issue #232: charge() insufficient-allowance error path
+// ─────────────────────────────────────────────
+
+/// If a user's token allowance drops below `sub.amount` between subscribe and
+/// charge time, `transfer_from` must fail and propagate the error.
+#[test]
+#[should_panic]
+fn test_charge_insufficient_allowance() {
+    let (env, contract_id, token_addr, user, merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    let amount: i128 = 5_0000000;
+    let interval: u64 = 86400;
+
+    // Subscribe with sufficient allowance
+    client.subscribe(&user, &merchant, &amount, &interval, &token_addr, &None, &None);
+
+    // Revoke allowance — set it to 0
+    let token = TokenClient::new(&env, &token_addr);
+    token.approve(&user, &contract_id, &0, &200);
+
+    // Advance ledger past the interval
+    env.ledger().with_mut(|l| {
+        l.timestamp += interval + 1;
+    });
+
+    // charge() should panic because transfer_from fails with insufficient allowance
+    client.charge(&user);
+
+}
