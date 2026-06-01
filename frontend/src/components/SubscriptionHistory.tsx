@@ -27,6 +27,41 @@ function truncateHash(hash: string): string {
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
+// ─── CSV export helper ────────────────────────────────────────────────────────
+
+/** Wrap a cell value in double-quotes and escape any internal quotes. */
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Build a CSV string from charge events and trigger a browser download.
+ * Columns: Date, Amount (XLM), TX Hash, Merchant
+ */
+function exportToCsv(events: ChargeEvent[]): void {
+  const header = ["Date", "Amount (XLM)", "TX Hash", "Merchant"].map(csvCell).join(",");
+
+  const rows = events.map((event) => {
+    const date = event.date.toISOString().slice(0, 10); // YYYY-MM-DD, locale-independent
+    const xlm = (Number(event.amount) / STROOPS_PER_XLM).toFixed(7);
+    return [date, xlm, event.txHash, event.merchant].map(csvCell).join(",");
+  });
+
+  const csv = [header, ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `payflow-charge-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+
+  // Clean up the object URL after the download is triggered
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function SubscriptionHistory({ userKey }: Props) {
   const { events: contractEvents, loading, error, refresh } = useContractEvents("charged", userKey);
 
@@ -102,7 +137,29 @@ export default function SubscriptionHistory({ userKey }: Props) {
 
   return (
     <div className="card">
-      <h3 className="subscription-card__title">Charge History</h3>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "var(--space-2)",
+        }}
+      >
+        <h3 className="subscription-card__title" style={{ margin: 0 }}>
+          Charge History
+        </h3>
+        {/* #271 — Export CSV button; disabled when no events */}
+        <button
+          className="btn-secondary"
+          onClick={() => exportToCsv(events)}
+          disabled={events.length === 0}
+          aria-label="Export charge history as CSV"
+          title="Download charge history as a CSV file"
+        >
+          Export CSV
+        </button>
+      </div>
+
       <div className="charge-history-list" role="list">
         {events.map((event, index) => (
           <div
