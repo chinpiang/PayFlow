@@ -1016,3 +1016,50 @@ fn test_subscribe_overwrites_cancelled_subscription() {
     assert!(sub_new.active);
     assert_eq!(sub_new.amount, 2_0000000);
 }
+
+// ─────────────────────────────────────────────
+// Issue: get_grace_period getter
+// ─────────────────────────────────────────────
+
+/// get_grace_period() returns 0 when no grace period has been set.
+#[test]
+fn test_get_grace_period_default_zero() {
+    let (env, contract_id, _token_addr, _user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    assert_eq!(client.get_grace_period(), 0);
+}
+
+/// get_grace_period() returns the value previously set by set_grace_period().
+#[test]
+fn test_get_grace_period_returns_set_value() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    // Promote user to admin so set_grace_period is authorized
+    env.as_contract(&contract_id, || {
+        storage::set_admin(&env, &user);
+    });
+
+    let grace_seconds: u64 = 3600; // 1 hour
+    client.set_grace_period(&grace_seconds);
+
+    assert_eq!(client.get_grace_period(), grace_seconds);
+}
+
+/// get_grace_period() reflects updates when set_grace_period() is called again.
+#[test]
+fn test_get_grace_period_reflects_update() {
+    let (env, contract_id, _token_addr, user, _merchant) = setup();
+    let client = FlowPayClient::new(&env, &contract_id);
+
+    env.as_contract(&contract_id, || {
+        storage::set_admin(&env, &user);
+    });
+
+    client.set_grace_period(&3600_u64);
+    assert_eq!(client.get_grace_period(), 3600);
+
+    client.set_grace_period(&7200_u64);
+    assert_eq!(client.get_grace_period(), 7200);
+}

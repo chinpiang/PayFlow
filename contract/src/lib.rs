@@ -524,6 +524,12 @@ impl FlowPay {
         trial::get_trial_end(env, user)
     }
 
+    /// Returns the contract-wide grace period in seconds.
+    /// Returns 0 if no grace period has been set.
+    pub fn get_grace_period(env: Env) -> u64 {
+        grace::get_grace_period(&env)
+    }
+
     /// Sets the contract-wide grace period for charges.
     /// Only the contract admin can call this.
     pub fn set_grace_period(env: Env, seconds: u64) {
