@@ -74,6 +74,7 @@ pub enum DataKey {
 // ─────────────────────────────────────────────────────────────
 
 pub const SUBSCRIPTION_TTL_LEDGERS: u32 = 6307200; // ~1 year (assuming 5s blocks)
+pub const MAX_AMOUNT: i128 = 100_000_000_000;
 
 // ─────────────────────────────────────────────────────────────
 // Data types
@@ -315,6 +316,9 @@ impl FlowPay {
         user.require_auth();
 
         assert!(amount > 0, "amount must be positive");
+        if amount > MAX_AMOUNT {
+            panic!("Amount exceeds maximum cap");
+        }
 
         let key = DataKey::Subscription(user.clone());
 
@@ -574,6 +578,11 @@ impl FlowPay {
     pub fn set_whitelist_enabled(env: Env, enabled: bool) {
         admin::require_admin(&env);
         whitelist::set_whitelist_enabled(&env, enabled);
+    }
+
+    /// Returns whether the merchant whitelist is currently enabled.
+    pub fn is_whitelist_enabled(env: Env) -> bool {
+        whitelist::is_whitelist_enabled(&env)
     }
 
     /// Sets the protocol fee collection settings.
