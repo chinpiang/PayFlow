@@ -1,7 +1,7 @@
 use soroban_sdk::contracterror;
 
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum ContractError {
     /// Returned when attempting to initialize a contract that has already been initialized
@@ -24,7 +24,23 @@ pub enum ContractError {
     GracePeriodElapsed = 9,
     /// Returned when a merchant is not whitelisted
     MerchantNotWhitelisted = 10,
+    /// Returned when fee basis points exceed 10000
+    InvalidFeeBps = 11,
+    /// Returned when a user attempts to refer themselves
+    SelfReferral = 12,
+    /// Returned when the metadata label exceeds the 64-byte length limit
+    MetadataLabelTooLong = 11,
     /// Returned when a user attempts to refer themselves
     SelfReferral = 11,
     InvalidTokenAddress = 12,
+    /// Returned when a payment amount is greater than the configured maximum
+    AmountExceedsMaximum = 12,
+    /// Returned when attempting to operate on a subscription that is not active
+    SubscriptionNotActive = 13,
+    /// Returned when attempting to operate on a subscription that is paused
+    SubscriptionPaused = 14,
+    /// Returned when the contract has been paused by admin
+    ContractPaused = 15,
+    /// Returned when an invalid token address is detected
+    InvalidTokenAddress = 16,
 }
