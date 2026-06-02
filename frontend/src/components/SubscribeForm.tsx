@@ -2,13 +2,14 @@ import React, { useMemo, useState } from "react";
 import { StrKey } from "@stellar/stellar-sdk";
 import { buildSubscribeTx, DEFAULT_TOKEN } from "../stellar";
 import { friendlyError } from "../utils/errors";
-import { STROOPS_PER_XLM, BILLING_INTERVALS } from "../constants";
+import { STROOPS_PER_XLM, BILLING_INTERVALS } from "../constants"; // BILLING_INTERVALS used for initial value
 import { useFormValidation } from "../hooks/useFormValidation";
 import { useToast } from "../hooks/useToast";
 import { useTransaction } from "../hooks/useTransaction";
 import BalanceDisplay from "./BalanceDisplay";
 import AllowanceDisplay from "./AllowanceDisplay";
 import ToastContainer from "./Toast";
+import IntervalSelector from "./IntervalSelector";
 
 interface Props {
   userKey: string;
@@ -103,17 +104,9 @@ export default function SubscribeForm({ userKey, onSign, onSuccess, announce, on
         )}
       </label>
 
-      <label className="form-group">
-        <span className="form-label">Billing interval</span>
-        <select value={interval} onChange={(e) => setInterval(Number(e.target.value))}>
-          {BILLING_INTERVALS.map((i) => (
-            <option key={i.value} value={i.value}>
-              {i.label}
-            </option>
-          ))}
-        </select>
-        {errors.interval && <span className="text-error">{errors.interval}</span>}
-      </label>
+      {/* #278 — Use dedicated IntervalSelector instead of inline <select> */}
+      <IntervalSelector value={interval} onChange={setInterval} />
+      {errors.interval && <span className="text-error">{errors.interval}</span>}
 
       <button type="submit" disabled={pending} className="btn-primary subscribe-form__submit">
         {pending ? "Confirming…" : "Subscribe"}
