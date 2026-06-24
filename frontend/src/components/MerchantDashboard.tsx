@@ -4,6 +4,7 @@ import { formatAddress, formatXlm } from "../utils/format";
 import { usePolling } from "../hooks/usePolling";
 import { useTransaction } from "../hooks/useTransaction";
 import CopyButton from "./CopyButton";
+import RevenueSparkline from "./RevenueSparkline";
 
 interface Props {
   merchantKey: string;
@@ -123,25 +124,7 @@ export default function MerchantDashboard({
         </div>
         <div className="card">
           <span className="text-sm text-muted block mb-2">Last 7 Days Revenue</span>
-          <div className="flex items-end gap-1" style={{ height: "40px" }}>
-            {revenueHistory.length === 0 ? (
-              <p className="text-xs text-muted">No data</p>
-            ) : (
-              revenueHistory.map((dayRev, i) => (
-                <div
-                  key={i}
-                  style={{
-                    height: `${Math.max(Number((dayRev * 100n) / maxRevenue), 5)}%`,
-                    flex: 1,
-                    backgroundColor: "var(--color-primary)",
-                    borderRadius: "2px",
-                    opacity: 0.8,
-                  }}
-                  title={formatXlm(dayRev)}
-                />
-              ))
-            )}
-          </div>
+          <RevenueSparkline history={revenueHistory} />
         </div>
       </div>
 

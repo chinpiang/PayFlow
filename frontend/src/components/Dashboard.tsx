@@ -29,7 +29,7 @@ interface Props {
 export default function Dashboard({ userKey, onSign, refreshTrigger, announce, onCancelled, onPayPerUse }: Props) {
   const { subscription: sub, loading, refresh } = useSubscription(userKey, refreshTrigger);
   const { toasts, addToast, removeToast } = useToast();
-  const { healthy: rpcHealthy, error: rpcError } = useRpcHealth();
+  const { status: rpcStatus, latencyMs: rpcLatency, error: rpcError } = useRpcHealth();
   const cancelTx = useTransaction();
   const ppuTx = useTransaction();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -107,7 +107,13 @@ export default function Dashboard({ userKey, onSign, refreshTrigger, announce, o
   if (loading)
     return (
       <>
-        {!rpcHealthy && rpcError && (
+        {rpcStatus === "degraded" && (
+          <div className="network-warning network-warning--degraded" role="alert">
+            <span>⚠️</span>
+            <span>RPC connection degraded: Latency is high ({rpcLatency}ms)</span>
+          </div>
+        )}
+        {rpcStatus === "unreachable" && rpcError && (
           <div className="network-warning" role="alert">
             <span>⚠️</span>
             <span>RPC endpoint unreachable: {rpcError}</span>
@@ -122,7 +128,13 @@ export default function Dashboard({ userKey, onSign, refreshTrigger, announce, o
 
   return (
     <div className="dashboard">
-      {!rpcHealthy && rpcError && (
+      {rpcStatus === "degraded" && (
+        <div className="network-warning network-warning--degraded" role="alert">
+          <span>⚠️</span>
+          <span>RPC connection degraded: Latency is high ({rpcLatency}ms)</span>
+        </div>
+      )}
+      {rpcStatus === "unreachable" && rpcError && (
         <div className="network-warning" role="alert">
           <span>⚠️</span>
           <span>RPC endpoint unreachable: {rpcError}</span>

@@ -92,7 +92,7 @@ export default function App() {
   const { available: freighterAvailable, installUrl } = useFreighterAvailable();
   const { networkMatch, walletNetwork } = useNetworkCheck();
   const { valid: contractIdValid, error: contractIdError } = useContractId();
-  const { healthy: rpcHealthy, error: rpcError } = useRpcHealth();
+  const { status: rpcStatus, latencyMs: rpcLatency, error: rpcError } = useRpcHealth();
   const { isMobile } = useResponsive();
   const { announcement, announce } = useAccessibility();
   const { count: subscriberCount, loading: subscriberCountLoading } = useSubscriberCount();
@@ -151,7 +151,7 @@ export default function App() {
 
   async function handleConnectWallet() {
     await connect();
-    track("wallet_connect");
+    track({ type: "wallet_connected" });
   }
 
   return (
@@ -263,7 +263,13 @@ export default function App() {
       )}
 
       {/* RPC health warning */}
-      {!rpcHealthy && rpcError && (
+      {rpcStatus === "degraded" && (
+        <div className="network-warning network-warning--degraded" role="alert">
+          <span>⚠️</span>
+          <span>RPC connection degraded: Latency is high ({rpcLatency}ms)</span>
+        </div>
+      )}
+      {rpcStatus === "unreachable" && rpcError && (
         <div className="network-warning" role="alert">
           <span>⚠️</span>
           <span>RPC endpoint unreachable: {rpcError}</span>
@@ -351,7 +357,7 @@ export default function App() {
                 <SubscribeForm
                   userKey={publicKey}
                   onSign={signAndSubmit}
-                  onSubscribed={() => track("subscribe")}
+                  onSubscribed={() => track({ type: "subscription_created" })}
                   onSuccess={() => {
                     setTab("dashboard");
                     setRefresh((r) => r + 1);
@@ -390,8 +396,8 @@ export default function App() {
                   onSign={signAndSubmit}
                   refreshTrigger={refresh}
                   announce={announce}
-                  onCancelled={() => track("cancel")}
-                  onPayPerUse={(amount) => track("pay_per_use", { amount: amount.toString() })}
+                  onCancelled={() => track({ type: "subscription_cancelled" })}
+                  onPayPerUse={(amount) => track({ type: "pay_per_use", metadata: { amount: amount.toString() } })}
                 />
               </ErrorBoundary>
             )}
