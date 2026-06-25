@@ -606,16 +606,17 @@ export async function getAllowance(owner: string, tokenId = TOKEN_CONTRACT_ID): 
  */
 export async function fetchEvents(
   eventName: string,
-  address?: string
-): Promise<ContractEvent[]> {
+  address?: string,
+  cursor?: string
+): Promise<{ events: ContractEvent[]; nextCursor?: string }> {
   try {
     const response = await server.getEvents({
-      startLedger: undefined,
+      cursor,
       filters: [{ type: "contract", contractIds: [CONTRACT_ID] }],
       limit: 100,
     });
 
-    return response.events
+    const events = response.events
       .filter((event: any) => {
         if (!event.topic || event.topic.length < 1) return false;
         if (event.topic[0]?.toString() !== eventName) return false;
@@ -632,8 +633,13 @@ export async function fetchEvents(
           : new Date().toISOString(),
         txHash: event.txHash ?? event.id ?? "",
       }));
+
+    return {
+      events,
+      nextCursor: response.latestLedger > 0 ? response.cursor : undefined,
+    };
   } catch {
-    return [];
+    return { events: [] };
   }
 }
 

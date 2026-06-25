@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 
@@ -23,6 +23,8 @@ describe("SubscriptionHistory", () => {
       loading: true,
       error: null,
       refresh: vi.fn(),
+      loadMore: vi.fn(),
+      hasMore: false,
     });
 
     render(<SubscriptionHistory userKey="GABC123" />);
@@ -67,6 +69,8 @@ describe("SubscriptionHistory", () => {
       loading: false,
       error: null,
       refresh: vi.fn(),
+      loadMore: vi.fn(),
+      hasMore: false,
     });
 
     render(<SubscriptionHistory userKey="GABC123" />);
@@ -86,6 +90,8 @@ describe("SubscriptionHistory", () => {
       loading: false,
       error: null,
       refresh: vi.fn(),
+      loadMore: vi.fn(),
+      hasMore: false,
     });
 
     render(<SubscriptionHistory userKey="GABC123" />);
@@ -103,6 +109,8 @@ describe("SubscriptionHistory", () => {
       loading: false,
       error: "Network error",
       refresh: vi.fn(),
+      loadMore: vi.fn(),
+      hasMore: false,
     });
 
     render(<SubscriptionHistory userKey="GABC123" />);
@@ -120,6 +128,8 @@ describe("SubscriptionHistory", () => {
       loading: false,
       error: null,
       refresh: vi.fn(),
+      loadMore: vi.fn(),
+      hasMore: false,
     });
 
     render(<SubscriptionHistory userKey="GTESTUSER123" />);
