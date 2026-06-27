@@ -47,6 +47,8 @@ pub enum ContractError {
     IntervalTooShort = 19,
     /// Returned when a merchant attempts to withdraw with no accrued revenue
     ZeroBalanceAvailable = 20,
+    /// Returned when attempting to transfer to an address that already has an active subscription
+    SubscriptionAlreadyActive = 21,
     /// Returned when attempting to subscribe to a frozen merchant
     MerchantFrozen = 22,
     /// Returned when a two-step commit is attempted without a pending proposal

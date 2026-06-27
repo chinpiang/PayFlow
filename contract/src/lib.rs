@@ -1261,6 +1261,56 @@ impl FlowPay {
     pub fn get_charge_history_page(env: Env, user: Address, offset: u32, limit: u32) -> Vec<u64> {
         subscription_history::get_charge_history_page(&env, &user, offset, limit)
     }
+
+    /// Transfers subscription ownership from `user` to `new_user`.
+    ///
+    /// # Auth
+    ///
+    /// Requires authorization from `user`.
+    ///
+    /// # Errors
+    ///
+    /// Panics if the contract is paused, no active subscription exists for
+    /// `user`, or `new_user` already holds an active subscription.
+    ///
+    /// # Side Effects
+    ///
+    /// Moves the subscription struct to `new_user`, removes it from `user`,
+    /// refreshes TTL, and emits `sub_transferred`.
+    pub fn transfer_subscription(env: Env, user: Address, new_user: Address) {
+        ensure_contract_not_paused(&env);
+        user.require_auth();
+
+        let old_key = DataKey::Subscription(user.clone());
+        let new_key = DataKey::Subscription(new_user.clone());
+
+        let sub: Subscription = env
+            .storage()
+            .persistent()
+            .get(&old_key)
+            .unwrap_or_else(|| env.panic_with_error(ContractError::NoSubscriptionFound));
+
+        if !sub.active {
+            env.panic_with_error(ContractError::NoSubscriptionFound);
+        }
+
+        if let Some(existing) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Subscription>(&new_key)
+        {
+            if existing.active {
+                env.panic_with_error(ContractError::SubscriptionAlreadyActive);
+            }
+        }
+
+        env.storage().persistent().set(&new_key, &sub);
+        env.storage().persistent().remove(&old_key);
+
+        extend_subscription_ttl(&env, &new_user);
+
+        events::publish_subscription_transferred(&env, &user, &new_user);
+    }
 }
 
 fn extend_subscription_ttl(env: &Env, user: &Address) {
